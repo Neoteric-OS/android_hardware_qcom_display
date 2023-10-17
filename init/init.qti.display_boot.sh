@@ -96,7 +96,7 @@ case "$target" in
        608)
         #SOC ID for Crow is 608
         setprop vendor.display.enable_fb_scaling 0
-        setprop vendor.display.target.version 4
+        setprop vendor.display.target.version 5
         setprop vendor.gralloc.use_dma_buf_heaps 1
         setprop vendor.display.enable_posted_start_dyn 2
         setprop vendor.display.enable_allow_idle_fallback 1
@@ -109,6 +109,7 @@ case "$target" in
         setprop vendor.display.enable_inline_writeback 0
         setprop vendor.display.timed_render_enable 1
         setprop debug.sf.disable_client_composition_cache 0
+        setprop vendor.display.enable_qsync_idle 1
         ;;
     esac
     ;;

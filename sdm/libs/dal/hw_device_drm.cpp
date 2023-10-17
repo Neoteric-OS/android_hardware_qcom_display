@@ -569,6 +569,12 @@ DisplayError HWDeviceDRM::Init() {
     DLOGI("aspect_ratio_threshold_: %f", aspect_ratio_threshold_);
   }
 
+  value = 0;
+  if (Debug::GetProperty(FORCE_TONEMAPPING, &value) == kErrorNone) {
+    force_tonemapping_ = (value == 1);
+    DLOGI("force_tonemapping_ %d", force_tonemapping_);
+  }
+
   return kErrorNone;
 }
 
@@ -1157,7 +1163,10 @@ DisplayError HWDeviceDRM::PowerOn(const HWQosData &qos_data, SyncPoints *sync_po
   drm_atomic_intf_->Perform(DRMOps::CRTC_GET_RELEASE_FENCE, token_.crtc_id, &release_fence_fd);
   drm_atomic_intf_->Perform(DRMOps::CONNECTOR_GET_RETIRE_FENCE, token_.conn_id, &retire_fence_fd);
 
-  int ret = NullCommit(false /* synchronous */, true /* retain_planes */);
+  // On the first boot up of the display, make the power call synchronous. This is only applicable
+  // to pluggable displays. Check HWPeripheralDRM::PowerOn. For builtin first power call defered
+  // and handled in commit(synchronous for first cycle).
+  int ret = NullCommit(first_cycle_ /* synchronous */, true /* retain_planes */);
   if (ret) {
     DLOGE("Failed with error: %d", ret);
     return kErrorHardware;
@@ -1520,6 +1529,37 @@ void HWDeviceDRM::SetupAtomic(Fence::ScopedRef &scoped_ref, HWLayersInfo *hw_lay
 
           SetSsppTonemapFeatures(pipe_info);
         } else if (update_luts) {
+          if (force_tonemapping_) {
+            sde_drm::DRMFp16CscType fp16_csc_type = sde_drm::DRMFp16CscType::kFP16CscTypeMax;
+            int fp16_igc_en = 0;
+            int fp16_unmult_en = 0;
+            drm_msm_fp16_gc fp16_gc_config = {.flags = 0, .mode = FP16_GC_MODE_INVALID};
+            SelectFp16Config(layer.input_buffer, &fp16_igc_en, &fp16_unmult_en, &fp16_csc_type,
+                             &fp16_gc_config, layer.blending);
+
+            // Account for PMA block activation directly at translation time to preserve layer
+            // blending definition and avoid issues when a layer structure is reused.
+            DRMBlendType blending = DRMBlendType::UNDEFINED;
+            LayerBlending layer_blend = layer.blending;
+            if (layer_blend == kBlendingPremultiplied) {
+              // If blending type is premultiplied alpha and FP16 unmult is enabled,
+              // prevent performing alpha unmultiply twice
+              if (fp16_unmult_en) {
+                layer_blend = kBlendingCoverage;
+                pipe_info->inverse_pma_info.inverse_pma = false;
+                pipe_info->inverse_pma_info.op = kReset;
+                DLOGI_IF(kTagDriverConfig,
+                         "PMA handled by FP16 UNMULT block - Pipe id: %u", pipe_id);
+              } else if (pipe_info->inverse_pma_info.inverse_pma) {
+                layer_blend = kBlendingCoverage;
+                DLOGI_IF(kTagDriverConfig,
+                         "PMA handled by Inverse PMA block - Pipe id: %u", pipe_id);
+              }
+            }
+            SetBlending(layer_blend, &blending);
+            drm_atomic_intf_->Perform(DRMOps::PLANE_SET_BLEND_TYPE, pipe_id, blending);
+          }
+
           SetSsppTonemapFeatures(pipe_info);
         }
 
@@ -1949,11 +1989,25 @@ DisplayError HWDeviceDRM::Flush(HWLayersInfo *hw_layers_info) {
   // dpps commit feature ops doesn't use the obj id, set it as -1
   drm_atomic_intf_->Perform(DRMOps::DPPS_COMMIT_FEATURE, -1);
 
+  if (cwb_config_.cwb_disp_id == display_id_ && cwb_config_.enabled) {
+    drm_atomic_intf_->Perform(DRMOps::CONNECTOR_SET_CRTC, cwb_config_.token.conn_id, 0);
+    DLOGI("Tearing down the CWB topology");
+  }
+
   int ret = NullCommit(sync_commit /* synchronous */, false /* retain_planes*/);
   if (ret) {
     DLOGE("failed with error %d", ret);
     return kErrorHardware;
   }
+
+  if (cwb_config_.cwb_disp_id == display_id_) {
+    if (cwb_config_.enabled) {
+      FlushConcurrentWriteback();
+    } else {
+      cwb_config_.cwb_disp_id = -1;
+    }
+  }
+
   return kErrorNone;
 }
 
