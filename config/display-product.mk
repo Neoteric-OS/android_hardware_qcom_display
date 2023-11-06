@@ -194,7 +194,7 @@ SOONG_CONFIG_qtidisplay := drmpp headless llvmsa \
                            gralloc4 displayconfig_enabled \
                            default var1 var2 var3 llvmcov  \
                            composer_version smmu_proxy \
-                           ubwcp_headers sixzone_version
+                           ubwcp_headers sixzone_version panel_dimension_extra_precision \
 
 # Soong Values
 SOONG_CONFIG_qtidisplay_drmpp := true
@@ -211,6 +211,7 @@ SOONG_CONFIG_qtidisplay_smmu_proxy := false
 SOONG_CONFIG_qtidisplay_ubwcp_headers := true
 SOONG_CONFIG_qtidisplay_composer_version := v2
 SOONG_CONFIG_qtidisplay_sixzone_version := v2
+SOONG_CONFIG_qtidisplay_panel_dimension_extra_precision := false
 ifeq ($(TARGET_USES_COMPOSER3),true)
     SOONG_CONFIG_qtidisplay_composer_version := v3
     $(warning "Using composer3")
@@ -230,6 +231,9 @@ ifeq ($(call is-vendor-board-platform,QCOM),true)
     SOONG_CONFIG_qtidisplay_displayconfig_enabled := true
 endif
 
+ifeq ($(TARGET_PANEL_DIMENSION_HAS_EXTRA_PRECISION), true)
+    SOONG_CONFIG_qtidisplay_panel_dimension_extra_precision := true
+endif
 
 ifeq ($(filter $(TARGET_BOARD_PLATFORM), kalama niobe neo61), $(TARGET_BOARD_PLATFORM))
     SOONG_CONFIG_qtidisplay_ubwcp_headers := false
