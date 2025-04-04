@@ -30,6 +30,7 @@
  */
 
 #define ATRACE_TAG (ATRACE_TAG_GRAPHICS | ATRACE_TAG_HAL)
+#define DEBUG 0
 #include "QtiMapperExtensions.h"
 #include <cutils/properties.h>
 #include <cutils/trace.h>
@@ -79,7 +80,7 @@ Return<void> QtiMapperExtensions::getInterlacedFlag(void *buffer, getInterlacedF
         gralloc::GetMetaDataValue(hnd, QTI_PP_PARAM_INTERLACED, &interlaced_flag));
     if (ret != Error::NONE) {
       interlaced_flag = 0;
-      ALOGW(
+      ALOGD_IF(DEBUG,
           "%s: getMetaData returned %d, defaulting to "
           "interlaced_flag = %d",
           __FUNCTION__, ret, interlaced_flag);
