@@ -433,25 +433,33 @@ void HWCSession::InitSupportedDisplaySlots() {
 
   if (kPluggable == hw_disp_info.type) {
     // If primary is a pluggable display, we have already used one pluggable display interface.
-    max_pluggable--;
+    // max_pluggable/builtin can both be initialized to 0 in case of invalid panel node
+    // check to avoid overflow
+    if (max_pluggable) {
+      max_pluggable--;
+    }
   } else {
-    max_builtin--;
+    if (max_builtin) {
+      max_builtin--;
+    }
   }
 
   // Init slots in accordance to h/w capability.
   uint32_t disp_count = UINT32(std::min(max_pluggable, HWCCallbacks::kNumPluggable));
-  Display base_id = qdutils::DISPLAY_EXTERNAL;
+  Display base_id = HWC_DISPLAY_EXTERNAL;
   map_info_pluggable_.resize(disp_count);
   for (auto &map_info : map_info_pluggable_) {
     map_info.client_id = base_id++;
   }
 
+  base_id = HWC_DISPLAY_BUILTIN_2;
   disp_count = UINT32(std::min(max_builtin, HWCCallbacks::kNumBuiltIn));
   map_info_builtin_.resize(disp_count);
   for (auto &map_info : map_info_builtin_) {
     map_info.client_id = base_id++;
   }
 
+  base_id = HWC_DISPLAY_VIRTUAL;
   disp_count = UINT32(std::min(max_virtual, HWCCallbacks::kNumVirtual));
   map_info_virtual_.resize(disp_count);
   for (auto &map_info : map_info_virtual_) {
@@ -844,7 +852,6 @@ HWC3::Error HWCSession::PresentDisplay(Display display, shared_ptr<Fence> *out_r
     if (pending_power_mode_[display]) {
       status = HWC3::Error::None;
     } else {
-      hwc_display_[display]->ProcessActiveConfigChange();
       status = hwc_display_[display]->Present(out_retire_fence);
       if (status == HWC3::Error::None) {
         PostCommitLocked(display, *out_retire_fence);
@@ -3491,7 +3498,10 @@ void HWCSession::PerformDisplayPowerReset() {
     locker_[display].Unlock();
   }
 
-  callbacks_.Refresh(vsync_source);
+  // Do not call refresh if valid vsync source is not set i,e. Its kNumDisplay
+  if (vsync_source != HWCCallbacks::kNumDisplays) {
+    callbacks_.Refresh(vsync_source);
+  }
 }
 
 void HWCSession::DisplayPowerReset() {
