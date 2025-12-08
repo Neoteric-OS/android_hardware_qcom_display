@@ -1,6 +1,6 @@
 soong_namespace {
     imports: [
-        "hardware/qcom-caf/sm8750/display",
+        "hardware/qcom-caf/sm8750",
     ],
 }
 
