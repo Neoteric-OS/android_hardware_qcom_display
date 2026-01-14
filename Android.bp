@@ -102,6 +102,7 @@ qtidisplay_cc_defaults {
 qtidisplay_cc_defaults {
     name: "qtidisplay_common_defaults",
     cflags: [
+        "-O3",
         "-Wno-missing-field-initializers",
         "-Wall",
         "-Werror",
