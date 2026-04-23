@@ -196,7 +196,7 @@ SOONG_CONFIG_NAMESPACES += qtidisplay
 # Soong Keys
 SOONG_CONFIG_qtidisplay := drmpp headless llvmsa \
                            gralloc4 displayconfig_enabled \
-                           default var1 var2 var3 llvmcov  \
+                           default var1 var2 var3 llvmcov legacy_pphwresourceinfo \
                            composer_version smmu_proxy \
                            ubwcp_headers sixzone_version panel_dimension_extra_precision udfps \
 
@@ -211,6 +211,7 @@ SOONG_CONFIG_qtidisplay_var1 := false
 SOONG_CONFIG_qtidisplay_var2 := false
 SOONG_CONFIG_qtidisplay_var3 := false
 SOONG_CONFIG_qtidisplay_llvmcov := false
+SOONG_CONFIG_qtidisplay_legacy_pphwresourceinfo := false
 SOONG_CONFIG_qtidisplay_smmu_proxy := false
 SOONG_CONFIG_qtidisplay_ubwcp_headers := true
 SOONG_CONFIG_qtidisplay_composer_version := v2

@@ -7,6 +7,7 @@ soong_config_module_type {
         "headless",
         "llvmsa",
         "gralloc4",
+        "legacy_pphwresourceinfo",
         "udfps",
         "default",
         "var3",
@@ -97,6 +98,15 @@ qtidisplay_cc_defaults {
             ]
         }
     }
+}
+
+qtidisplay_cc_defaults {
+    name: "qtidisplay_legacy_pphwresourceinfo_defaults",
+    soong_config_variables: {
+        legacy_pphwresourceinfo: {
+            cflags: ["-DTARGET_EXCLUDE_DDR_INFO"],
+        },
+    },
 }
 
 qtidisplay_cc_defaults {
