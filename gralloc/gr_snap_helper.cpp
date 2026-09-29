@@ -2,6 +2,7 @@
  * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 #include <QtiGralloc.h>
 #include "BufferUsage.h"
 #include "QtiGrallocDefs.h"
@@ -262,6 +263,37 @@ int GrallocSnapHelper::Import(native_handle_t *gr_hnd) {
   return SnapError::NONE;
 }
 
+int GrallocSnapHelper::GetBaseView(native_handle_t *gr_hnd, uint32_t *view) {
+  if (gr_hnd == nullptr) {
+    ALOGE("Invalid gralloc handle");
+    return SnapError::BAD_BUFFER;
+  }
+  if (!IsSnapAllocEnabled()) {
+    ALOGW("SnapAlloc is disabled");
+    return SnapError::UNSUPPORTED;
+  }
+
+  std::lock_guard<std::mutex> lock(map_lock_);
+
+  SnapHandle *hnd = nullptr;
+  if (handles_map_.find(gr_hnd) != handles_map_.end()) {
+    hnd = handles_map_.at(gr_hnd);
+  }
+
+  if (hnd != nullptr) {
+    auto status = snapmapper_->GetBaseView(*hnd, view);
+
+    if (status != SnapError::NONE) {
+      ALOGI("Unable to get base view from snapalloc.Returning error %d", static_cast<int>(status));
+      return status;
+    }
+    return SnapError::NONE;
+  } else {
+    ALOGE("%s: Failed to get SnapHandle for gralloc handle %p", __FUNCTION__, gr_hnd);
+  }
+
+  return SnapError::BAD_BUFFER;
+}
 int GrallocSnapHelper::ImportViewBuffer(native_handle_t *meta_handle, uint32_t view,
                                         buffer_handle_t *out_buffer_handle) {
   if (meta_handle == nullptr) {
@@ -696,8 +728,8 @@ SnapError GrallocSnapHelper::DataspaceHelper(SnapHandle *hnd, uint32_t aidl_size
       }
       int err = ConvertGrallocDataspaceToSnapDataspace(*decoded_result, &dataspace);
       if (err != SnapError::NONE && static_cast<int>(*decoded_result) != 0) {
-        ALOGW("%s: Attempting to set invalid gralloc dataspace - %d", __FUNCTION__,
-              *decoded_result);
+        ALOGW_IF(enable_logs_, "%s: Attempting to set invalid gralloc dataspace - %d", __FUNCTION__,
+                 *decoded_result);
         return SnapError::UNSUPPORTED;
       }
       snap_dataspace = static_cast<SnapDataspace *>(&dataspace);
@@ -1023,6 +1055,19 @@ SnapError GrallocSnapHelper::ThreeDimensionalRefInfoHelper(SnapHandle *hnd, uint
     error = snapmapper_->GetMetadata(*hnd, SnapMetadataType::THREE_DIMENSIONAL_REF_INFO, snap_out_get);
   } else if (gralloc_in_set != nullptr) {
     error = snapmapper_->SetMetadata(*hnd, SnapMetadataType::THREE_DIMENSIONAL_REF_INFO, gralloc_in_set);
+  }
+  return error;
+}
+
+SnapError GrallocSnapHelper::ViewIdHelper(SnapHandle *hnd, uint32_t aidl_size, void *gralloc_in_set,
+                                          void *gralloc_out_get, SnapDescriptor *buf_des,
+                                          bool check_metadata_set, int32_t *mapper_return) {
+  auto error = SnapError::BAD_VALUE;
+  void *snap_out_get = gralloc_out_get;
+  if (gralloc_out_get != nullptr) {
+    error = snapmapper_->GetMetadata(*hnd, SnapMetadataType::VIEW_ID, snap_out_get);
+  } else if (gralloc_in_set != nullptr) {
+    error = snapmapper_->SetMetadata(*hnd, SnapMetadataType::VIEW_ID, gralloc_in_set);
   }
   return error;
 }
@@ -3096,6 +3141,11 @@ SnapError GrallocSnapHelper::GetSnapDescriptor(gralloc::BufferDescriptor gr_desc
              __FUNCTION__, gr_desc.GetFormat(), gr_desc.GetUsage(), snap_fmt_desc.format,
              snap_fmt_desc.modifier, snap_desc.usage, gr_desc.GetName().c_str(), snap_desc.name);
   }
+  if (!snapallocator_->IsFormatSupportedByGPU(snap_desc)) {
+     ALOGW("%s: Format not supported by GPU - format %d, modifier %d, usage %" PRIu64 "",
+           __FUNCTION__, snap_desc.format, snap_fmt_desc.modifier, snap_desc.usage);
+     return SnapError::UNSUPPORTED;
+  }
   return SnapError::NONE;
 }
 
@@ -3786,7 +3836,8 @@ SnapError GrallocSnapHelperLegacy::DataspaceHelper(SnapHandle *hnd, bool hidl_by
           *static_cast<GrallocDataspace *>(gralloc_in_set), &snap_dataspace);
     }
     if (conversion_err != SnapError::NONE) {
-      ALOGW("%s: Attempting to set invalid gralloc dataspace - %d", __FUNCTION__, gr_dataspace);
+      ALOGW_IF(enable_logs_, "%s: Attempting to set invalid gralloc dataspace - %d", __FUNCTION__,
+               gr_dataspace);
       return SnapError::UNSUPPORTED;
     }
     error = snapmapper_->SetMetadata(*hnd, SnapMetadataType::DATASPACE, &snap_dataspace);
