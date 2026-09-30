@@ -186,21 +186,9 @@ SOONG_CONFIG_qtidisplay_hwasan := false
 SOONG_CONFIG_qtidisplay_llvmcov := false
 SOONG_CONFIG_qtidisplay_smmu_proxy := false
 SOONG_CONFIG_qtidisplay_ubwcp_headers := true
-SOONG_CONFIG_qtidisplay_composer_version := v3
+SOONG_CONFIG_qtidisplay_composer_version := v3_3
 SOONG_CONFIG_qtidisplay_mapper_ext := true
 SOONG_CONFIG_qtidisplay_udfps := false
-
-ifeq ($(PLATFORM_VERSION), 14)
-    SOONG_CONFIG_qtidisplay_mapper_ext := false
-endif
-
-ifeq ($(PLATFORM_VERSION), 15)
-    SOONG_CONFIG_qtidisplay_composer_version := v3_3
-endif
-
-ifeq ($(PLATFORM_VERSION), VanillaIceCream)
-    SOONG_CONFIG_qtidisplay_composer_version := v3_3
-endif
 
 ifeq ($(TARGET_USES_SMMU_PROXY),true)
     SOONG_CONFIG_qtidisplay_smmu_proxy := true
