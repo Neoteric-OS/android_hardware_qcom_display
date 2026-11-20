@@ -243,7 +243,7 @@ ifeq ($(TARGET_PANEL_DIMENSION_HAS_EXTRA_PRECISION), true)
     SOONG_CONFIG_qtidisplay_panel_dimension_extra_precision := true
 endif
 
-ifeq ($(filter $(TARGET_BOARD_PLATFORM), kalama niobe neo61), $(TARGET_BOARD_PLATFORM))
+ifeq ($(filter $(TARGET_BOARD_PLATFORM), kalama niobe neo61 pitti), $(TARGET_BOARD_PLATFORM))
     SOONG_CONFIG_qtidisplay_ubwcp_headers := false
 endif
 
